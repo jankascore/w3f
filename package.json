@@ -43,6 +43,7 @@
     "@gelatonetwork/web3-functions-sdk": "^0.4.3",
     "dotenv": "^16.0.3",
     "ethers": "^5.7.1",
+    "ipfs-http-client": "^60.0.0",
     "ky": "^0.32.2"
   }
 }
