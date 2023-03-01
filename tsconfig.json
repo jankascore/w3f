@@ -11,7 +11,7 @@
     "resolveJsonModule": true,
     "typeRoots": ["./node_modules/@types"],
     "outDir": "dist",
-    "rootDir": "src",
+    // "rootDir": "src",
     "declaration": true,
     "useUnknownInCatchVariables": false
   },

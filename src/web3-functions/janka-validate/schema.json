@@ -2,5 +2,10 @@
   "web3FunctionVersion": "1.0.0",
   "runtime": "js-1.0",
   "memory": 128,
-  "timeout": 30
+  "timeout": 30,
+  "userArgs": {
+    "initialBlock": "number",
+    "rewardAddress": "string",
+    "jankaContract": "string"
+  }
 }
