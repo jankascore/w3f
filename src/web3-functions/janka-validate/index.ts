@@ -25,6 +25,8 @@ Web3Function.onRun(async (context: Web3FunctionContext) => {
   const txIndex = Number((await storage.get('txIndex') || 0))
   const rewardAddress = userArgs.rewardAddress || ethers.utils.computeAddress("0x")
 
+  const ipfsUrl = secrets.get('IPFS_PROXY_HOST');
+
   const janka = new ethers.Contract(userArgs.jankaContract as string, abi, provider) as JankaProtocol
   const filter = janka.filters.ScoreAttested()
   filter.fromBlock = blockNumber;
@@ -69,10 +71,7 @@ Web3Function.onRun(async (context: Web3FunctionContext) => {
 
   console.log(`Selected Attestation: ${attestation.address}, with score of ${attestation.score}`)
 
-  const scoringSource = await secrets.get("IPFS_PROXY_HOST")
-    .then(host => {
-      return ky.get(`${host}/ipfs/${attestation!.cid}`).text()
-    })
+  const scoringSource = await ky.get(`${await ipfsUrl}/ipfs/${attestation.cid}`).text()
 
   Function(scoringSource)();
 
@@ -81,11 +80,9 @@ Web3Function.onRun(async (context: Web3FunctionContext) => {
 
   const [score] = await calculator(attestation.address, attestation.timestamp)
 
+  console.log(`Attested Score: ${attestation.score}. Computed score: ${score}`)
+
   if (score !== attestation.score) {
-    console.log(`address: ${attestation.address}`)
-    console.log(`score: ${score}`)
-    console.log(`cid: ${attestation.cid}`)
-    console.log(`reward: ${rewardAddress}`)
     const callData = janka.interface.encodeFunctionData('challenge', [
       attestation.address,
       score,
@@ -98,7 +95,6 @@ Web3Function.onRun(async (context: Web3FunctionContext) => {
       callData: callData
     };
   } else {
-    console.log(score)
     return {
       canExec: false,
       message: "Score is Correct."
