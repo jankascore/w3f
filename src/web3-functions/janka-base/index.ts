@@ -31,7 +31,7 @@ Web3Function.onRun(async (context: Web3FunctionContext) => {
 
   const ipfsUrl = userArgs.ipfsProxy
 
-  const janka = new ethers.Contract(userArgs.jankaContract as string, abi, base) as JankaProtocol
+  const janka = new ethers.Contract(userArgs.jankaContract as string, abi, signer) as JankaProtocol
   const filter = janka.filters.ScoreAttested()
   filter.fromBlock = blockNumber;
 
@@ -87,14 +87,9 @@ Web3Function.onRun(async (context: Web3FunctionContext) => {
   console.log(`Attested Score: ${attestation.score}. Computed score: ${score}`)
 
   if (score !== attestation.score) {
-    const callData = janka.interface.encodeFunctionData('challenge', [
-      attestation.address,
-      score,
-      attestation.cid,
-      rewardAddress
-    ])
-
-    const tx = await janka.challenge(attestation.address, score, attestation.cid, rewardAddress)
+    const tx = await janka.challenge(attestation.address, score, attestation.cid, rewardAddress, {
+      gasLimit: 200000
+    })
     const resp = await tx.wait();
 
     return {
