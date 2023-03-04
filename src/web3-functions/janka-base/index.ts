@@ -3,10 +3,9 @@ import {
   Web3FunctionContext,
 } from "@gelatonetwork/web3-functions-sdk";
 import ky from 'ky';
-import {ethers, Event} from 'ethers';
+import {ethers} from 'ethers';
 import {abi} from '../../../../contracts/artifacts/contracts/JankaProtocol.sol/JankaProtocol.json'
-import {JankaProtocol, ScoreAttestedEventObject} from '../../types/JankaProtocol'
-import { LogDescription } from "ethers/lib/utils";
+import {JankaProtocol} from '../../types/JankaProtocol'
 
 interface EventItem {
   blockNumber: number;
@@ -19,7 +18,12 @@ interface EventItem {
 
 // Fill this out with your Web3 Function logic
 Web3Function.onRun(async (context: Web3FunctionContext) => {
-  const { userArgs, gelatoArgs, provider, secrets, storage } = context;
+  const { userArgs, secrets, storage } = context;
+  const base = new ethers.providers.JsonRpcProvider('https://goerli.base.org')
+  const key = await secrets.get('BASE_KEY');
+  if (!key) throw new Error("No private key for base!");
+  const signer = new ethers.Wallet(key, base)
+  console.log("Loaded wallet: ", signer.address)
 
   const blockNumber = Number((await storage.get('block')) || userArgs.initialBlock as number)
   const txIndex = Number((await storage.get('txIndex') || 0))
@@ -27,12 +31,12 @@ Web3Function.onRun(async (context: Web3FunctionContext) => {
 
   const ipfsUrl = userArgs.ipfsProxy
 
-  const janka = new ethers.Contract(userArgs.jankaContract as string, abi, provider) as JankaProtocol
+  const janka = new ethers.Contract(userArgs.jankaContract as string, abi, base) as JankaProtocol
   const filter = janka.filters.ScoreAttested()
   filter.fromBlock = blockNumber;
 
   // collect some logs
-  const attestations: EventItem[] = await provider.getLogs(filter).then(logs => {
+  const attestations: EventItem[] = await base.getLogs(filter).then(logs => {
     return logs.map(log => {
       const eventFragment = janka.interface.events["ScoreAttested(address,uint8,string,uint256)"]
       const [address, score, cid, timestamp] = janka.interface.decodeEventLog(eventFragment, log.data);
@@ -71,7 +75,7 @@ Web3Function.onRun(async (context: Web3FunctionContext) => {
 
   console.log(`Selected Attestation: ${attestation.address}, with score of ${attestation.score}`)
 
-  const scoringSource = await ky.get(`${await ipfsUrl}/ipfs/${attestation.cid}`).text()
+  const scoringSource = await ky.get(`${ipfsUrl}/ipfs/${attestation.cid}`).text()
 
   Function(scoringSource)();
 
@@ -90,9 +94,12 @@ Web3Function.onRun(async (context: Web3FunctionContext) => {
       rewardAddress
     ])
 
+    const tx = await janka.challenge(attestation.address, score, attestation.cid, rewardAddress)
+    const resp = await tx.wait();
+
     return {
-      canExec: true,
-      callData: callData
+      canExec: false,
+      message: "Corrected Score on Base"
     };
   } else {
     return {
